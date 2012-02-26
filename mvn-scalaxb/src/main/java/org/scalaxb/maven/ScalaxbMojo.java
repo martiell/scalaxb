@@ -28,7 +28,6 @@ import static java.util.Collections.sort;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -37,16 +36,16 @@ import org.codehaus.plexus.util.Scanner;
 import org.slf4j.impl.MavenLoggerFactory;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
-import scala.collection.JavaConversions;
-import scala.collection.mutable.Buffer;
-import scalaxb.compiler.CaseClassTooLong;
-import scalaxb.compiler.ReferenceNotFound;
-
 /**
  * @goal generate
  * @phase generate-sources
  */
 public class ScalaxbMojo extends AbstractScalaxbMojo {
+
+    /**
+     * @component
+     */
+    private Scalaxb scalaxb;
 
     /**
      * @parameter expression="${project}"
@@ -121,50 +120,18 @@ public class ScalaxbMojo extends AbstractScalaxbMojo {
 
     private void generateBindings(List<String> schemaFiles)
             throws MojoExecutionException, MojoFailureException {
-        List<String> arguments = new ArrayList<String>();
-        arguments.addAll(arguments());
-        arguments.addAll(schemaFiles);
-        invokeCompiler(arguments);
+
+        getOutputDirectory().mkdirs();
+
+        scalaxb.setLog(getLog());
+        scalaxb.generate(arguments(), schemaFiles);
+
+        context.refresh(getOutputDirectory());
+        String outputPath = getOutputDirectory().getAbsolutePath();
+        getLog().debug("Adding source root: " + outputPath);
+        project.addCompileSourceRoot(outputPath);
     }
 
-    private void invokeCompiler(List<String> arguments)
-            throws MojoExecutionException, MojoFailureException {
-
-        if (getLog().isInfoEnabled()) {
-            getLog().info("Running in process: scalaxb " + argumentsToString(arguments));
-        }
-
-        try {
-            Buffer<String> args = JavaConversions.asScalaBuffer(arguments);
-            scalaxb.compiler.Main.start(args);
-            context.refresh(getOutputDirectory());
-        } catch (ReferenceNotFound ex) {
-            throw new MojoFailureException(ex.getMessage(), ex);
-        } catch (CaseClassTooLong ex) {
-            throw new MojoFailureException(ex.getMessage(), ex);
-        } catch (Exception ex) {
-            throw new MojoExecutionException("Error running scalaxb", ex);
-        }
-    }
-
-    /**
-     * Formats arguments into a form that can be copied and pasted into the command line.
-     */
-    static String argumentsToString(List<String> arguments) {
-        Pattern safe = Pattern.compile("[\\p{Alnum}:/=\\.-]*");
-        StringBuilder str = new StringBuilder();
-        for (String arg : arguments) {
-            if (safe.matcher(arg).matches()) {
-                str.append(arg);
-            } else {
-                String escapedArg = arg.replaceAll("'", "'\\\\''");
-                str.append('\'').append(escapedArg).append('\'');
-            }
-            str.append(' ');
-        }
-        str.deleteCharAt(str.length() - 1);
-        return str.toString();
-    }
 
     /**
      * Returns the path of all files in a directory (or its subdirectories) with

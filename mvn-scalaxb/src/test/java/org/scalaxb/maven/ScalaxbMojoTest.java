@@ -22,8 +22,6 @@ package org.scalaxb.maven;
  * THE SOFTWARE.
  */
 
-import static java.util.Arrays.asList;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -54,21 +52,6 @@ import org.sonatype.plexus.build.incremental.DefaultBuildContext;
 public class ScalaxbMojoTest extends TestCase {
 
     private static final char SEP = File.separatorChar;
-
-    /**
-     * Arguments that don't need to be escaped should be returned as-is.
-     * Other arguments should be enclosed in single quotes, which must be
-     * escaped.
-     */
-    public void testArgumentsToString() {
-        expect("-p:http://example.com/S1=f", "-p:http://example.com/S1=f");
-        expect("'-pfoo$bar'", "-pfoo$bar");
-        expect("'a'\\''x'", "a'x");
-    }
-
-    private void expect(String expect, String... arguments) {
-        assertEquals(expect, ScalaxbMojo.argumentsToString(asList(arguments)));
-    }
 
     /**
      * Test URI to package name mapping is read from configuration correctly.
