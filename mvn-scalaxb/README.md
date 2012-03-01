@@ -11,15 +11,11 @@ Building
 
 To build with integration tests:
 
-    mvn install -s settings.xml -Pit
+    mvn install -Pit
 
 To build without integration tests, simply:
 
-    mvn install -s settings.xml
-
-The `-s` option can be omitted when using a repository manager,
-or if your existing user settings already specify the scala-tools
-repository.
+    mvn install
 
 Releasing
 ---------
@@ -28,14 +24,14 @@ From the `mvn-scalaxb` directory:
 
   * Copy the settings file to somewhere outside the repository, and
     edit it to set the username and password used to deploy to the
-    scala-tools repository:
+    Sonatype OSS repository:
 
-        cp settings.xml ~/.m2/scala-tools.xml
-        vi ~/.m2/scala-tools.xml
+        cp settings.xml ~/.m2/sonatype.xml
+        vi ~/.m2/sonatype.xml
 
   * Create an alias that will invoke Maven using the new settings file:
 
-        alias mvnst="mvn -s ~/.m2/scala-tools.xml"
+        alias mvnst="mvn -s ~/.m2/sonatype.xml"
 
   * Use the `maven-release-plugin` to update the version in the `pom.xml`,
     tag, and verify the build:
