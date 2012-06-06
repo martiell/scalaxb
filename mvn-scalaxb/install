@@ -1,14 +1,73 @@
-#!/bin/sh
-# Build scalaxb and install into the local maven repository.
-# (actually just into ~/.m2/repository: it doesn't check settings.xml)
-if [ -z "$APPENGINE_SDK_HOME" ] ; then
-  echo The APPENGINE_SDK_HOME environment variable must be set.
-  exit 1
-fi
-REPO=$HOME/.m2/repository
-cd $(dirname $0)/..
-sbt <<EOF
-project app
-set publishTo := Some(Resolver.file("file",  new File("$REPO")))
-publish
+#!/bin/bash -e
+# Build scalaxb and install into a maven repository.
+
+publish_local() {
+  REPO=${1:-$HOME/.m2/repository}
+  if [ "$REPO" = "${REPO#/}" ]; then
+    REPO=$PWD/$REPO;
+  fi
+  cd $(dirname $0)/..
+  sbt <<EOF
+  project app
+  set publishTo := Some(Resolver.file("file",  new File("$REPO")))
+  publish
 EOF
+  cd -
+}
+
+publish_remote() {
+  local url=$1
+  local id=$2
+  if [ -z "$url" ] ; then
+    echo "No repository URL specified"
+    usage
+  fi
+  if [ -n "$id" ] ; then
+    repositoryId=-DrepositoryId=$id
+  fi
+  repo=deploy-$$
+  publish_local $repo
+  find "$repo" -path "$repo/org/scalaxb/*" -name "*.pom" | while read f; do
+    f=${f#$repo/}
+    dir=${f%/*}
+    fn=${f##*/}
+    v=${f%/$fn}; v=${v##*/}
+    a=${f%/$v/$fn}; a=${a##*/}
+    g=${f%/$a/$v/$fn}; g=${g/\//.}
+    mvn deploy:deploy-file \
+     -DgroupId=$g \
+     -DartifactId=$a \
+     -Dversion=$v \
+     -DpomFile=$REPO/$f \
+     -Dfile=$repo/${f%pom}jar \
+     -Dsources=$repo/$dir/$a-$v-sources.jar \
+     -Djavadoc=$repo/$dir/$a-$v-javadoc.jar \
+     -Durl=$url \
+     $repositoryId
+    rm -r $repo
+  done
+}
+
+usage() {
+  local cmd=$(basename $0)
+  printf "$cmd - Publish scalaxb to a maven repository.\n\n"
+  printf "  $cmd local [ repository ]\n"
+  printf "  Publish to local repository (default: ~/.m2/repository).\n\n"
+  printf "  $cmd remote <url> [ <repositoryId> ]\n"
+  printf "  Publish to remote repository.\n\n"
+  exit 1
+}
+
+if (( $# > 0 )); then
+  cmd="$1"
+  shift
+fi
+
+case "$cmd" in
+  local)
+    publish_local "$@";;
+  remote)
+    publish_remote "$@";;
+  *)
+    usage;;
+esac
